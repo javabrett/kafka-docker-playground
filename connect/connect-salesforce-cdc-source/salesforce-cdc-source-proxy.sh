@@ -50,6 +50,8 @@ DOMAIN=$(echo $SALESFORCE_INSTANCE | cut -d "/" -f 3)
 IP=$(nslookup $DOMAIN | grep Address | grep -v "#" | cut -d " " -f 2 | tail -1)
 log "Blocking $DOMAIN IP $IP to make sure proxy is used"
 docker exec --privileged --user root connect bash -c "iptables -A INPUT -p tcp -s $IP -j DROP"
+cat /Users/brettrandall/.mitmproxy/mitmproxy-ca-cert.pem | docker exec -i --privileged --user root connect bash -c "cat >> /etc/ssl/certs/ca-bundle.crt"
+cat /Users/brettrandall/.mitmproxy/mitmproxy-ca-cert.pem | docker exec -i --privileged --user root connect bash -c "keytool -importcert --cacerts -storepass changeit -noprompt"
 
 log "Creating Salesforce CDC Source connector"
 curl -X PUT \
@@ -68,7 +70,7 @@ curl -X PUT \
                     "salesforce.password.token" : "'"$SALESFORCE_SECURITY_TOKEN"'",
                     "salesforce.consumer.key" : "'"$SALESFORCE_CONSUMER_KEY"'",
                     "salesforce.consumer.secret" : "'"$SALESFORCE_CONSUMER_PASSWORD"'",
-                    "http.proxy": "nginx-proxy:8888",
+                    "http.proxy": "mitmproxy:8080",
                     "salesforce.initial.start" : "latest",
                     "connection.max.message.size": "10048576",
                     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
